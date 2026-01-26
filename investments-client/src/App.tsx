@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Wallet, TrendingUp, Clock, AlertCircle, LogOut, User } from 'lucide-react';
+import { Wallet, Clock, AlertCircle, RefreshCcw } from 'lucide-react';
 
 // Interfaces for Type Safety
 interface InvestmentOption {
@@ -15,7 +15,7 @@ interface ActiveInvestment {
   name: string;
   amount: number;
   expectedReturn: number;
-  endTime: string;
+  endTime: string; // ISO String from Backend
 }
 
 interface UserData {
@@ -27,13 +27,31 @@ interface UserData {
 const API_BASE = 'http://localhost:5243/api/investment';
 
 function App() {
-  const [username, setUsername] = useState<string | null>(sessionStorage.getItem('invest_user'));
+  const [username, setUsername] = useState<string | null>(null);
   const [loginInput, setLoginInput] = useState('');
   const [userData, setUserData] = useState<UserData | null>(null);
   const [options, setOptions] = useState<InvestmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch all user-specific data and general options
+  // State for the ticking clock (triggers re-render every second for "Ends in") [cite: 35]
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // State for the "Last Update" timestamp 
+  const [lastUpdate, setLastUpdate] = useState<string>('--:--:--');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('invest_user');
+    if (stored) setUsername(stored);
+  }, []);
+
+  // Timer effect: Updates every 1 second to ensure "Ends in" countdown moves [cite: 35]
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const fetchAllData = useCallback(async () => {
     if (!username) return;
 
@@ -45,6 +63,11 @@ function App() {
 
       setUserData(userRes.data);
       setOptions(optRes.data);
+
+      // Requirement: Update "Last Update" display 
+      const now = new Date();
+      setLastUpdate(`${now.toLocaleDateString('en-GB')}, ${now.toLocaleTimeString('en-GB')}`);
+
     } catch (err) {
       console.error("Connection to backend failed", err);
     }
@@ -53,42 +76,57 @@ function App() {
   useEffect(() => {
     if (username) {
       fetchAllData();
-      const timer = setInterval(fetchAllData, 1000);
-      return () => clearInterval(timer);
+      const interval = setInterval(fetchAllData, 2000); // Poll BE every 2s [cite: 56]
+      return () => clearInterval(interval);
     }
   }, [username, fetchAllData]);
-  const getTimeRemaining = (endTime: string): string => {
-    const now = new Date().getTime();
-    const end = new Date(endTime).getTime();
-    const diff = Math.max(0, end - now);
-    const seconds = Math.floor(diff / 1000);
-    return `${seconds}s`;
+
+  const getTimeRemaining = (endTimeStr: string): string => {
+    try {
+      const utcStr = endTimeStr.endsWith('Z') ? endTimeStr : endTimeStr + 'Z';
+      const end = new Date(utcStr).getTime();
+      const now = Date.now();
+      const diff = end - now;
+
+      if (isNaN(end)) {
+        console.error('Invalid date:', endTimeStr);
+        return "Invalid time";
+      }
+
+      if (diff <= 0) {
+        return "Finishing...";
+      }
+
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+
+      if (minutes > 0) {
+        return `${minutes}m ${remainingSeconds}s`;
+      }
+      return `${seconds}s`;
+    } catch (error) {
+      console.error('Error calculating time:', error);
+      return "Error";
+    }
   };
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = loginInput.trim();
-
-    // Validation: at least 3 characters, only English letters
-    if (trimmed.length < 3) {
-      setError("Username must be at least 3 characters long");
+    // Validation: 3 chars min, English letters only [cite: 28]
+    if (trimmed.length < 3 || !/^[a-zA-Z]+$/.test(trimmed)) {
+      setError("Username must be at least 3 English letters");
       return;
     }
-
-    if (!/^[a-zA-Z]+$/.test(trimmed)) {
-      setError("Username must contain only English letters");
-      return;
-    }
-
     setError(null);
-    sessionStorage.setItem('invest_user', trimmed);
+    localStorage.setItem('invest_user', trimmed);
     setUsername(trimmed);
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('invest_user');
+    localStorage.removeItem('invest_user');
     setUsername(null);
     setUserData(null);
-    window.location.reload();
   };
 
   const handleInvest = async (optionName: string) => {
@@ -100,64 +138,56 @@ function App() {
       });
       fetchAllData();
     } catch (err: any) {
+      // Show clear response from BE [cite: 71]
       setError(err.response?.data?.message || "Investment failed");
     }
   };
 
-  // --- LOGIN VIEW ---
   if (!username) {
     return (
         <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f4f8' }}>
           <form onSubmit={handleLogin} style={{ background: 'white', padding: '40px', borderRadius: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
-            <h2 style={{ color: '#005f6b', marginBottom: '20px', textAlign: 'center' }}>Siemens Investment Portal</h2>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>Enter Username to Start</label>
-              <input
-                  type="text"
-                  value={loginInput}
-                  onChange={(e) => setLoginInput(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' }}
-                  placeholder="e.g. JohnDoe"
-                  required
-              />
-              {error && (
-                  <div style={{
-                    background: '#fee2e2',
-                    color: '#b91c1c',
-                    padding: '10px',
-                    borderRadius: '8px',
-                    marginTop: '10px',
-                    fontSize: '14px'
-                  }}>
-                    {error}
-                  </div>
-              )}
-            </div>
-            <button type="submit" style={{ width: '100%', background: '#005f6b', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-              Login / Create Account
+            <h2 style={{ color: '#005f6b', marginBottom: '20px', textAlign: 'center' }}>Investment Portal</h2>
+            <input
+                type="text"
+                value={loginInput}
+                onChange={(e) => setLoginInput(e.target.value)}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '10px' ,
+                  boxSizing: 'border-box'}}
+                placeholder="Enter Username"
+                required
+            />
+            {error && <div style={{ color: 'red', fontSize: '12px', marginBottom: '10px' }}>{error}</div>}
+            <button type="submit" style={{ width: '100%', background: '#005f6b', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+              boxSizing: 'border-box' }}>
+              Login
             </button>
           </form>
         </div>
     );
   }
 
-  // --- DASHBOARD VIEW ---
   return (
-      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '40px', fontFamily: 'Segoe UI, Tahoma, sans-serif' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '2px solid #eee', paddingBottom: '20px' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px', fontFamily: 'Segoe UI, sans-serif' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', borderBottom: '2px solid #eee', paddingBottom: '20px' }}>
           <div>
-            <h1 style={{ color: '#005f6b', margin: 0 }}>Siemens Simulator</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b', fontSize: '14px' }}>
-              <User size={14} /> Welcome, <strong>{username}</strong>
+            <h1 style={{ color: '#005f6b', margin: 0 }}>Hello, {username}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b', marginTop: '5px', fontSize: '14px' }}>
+              <RefreshCcw size={14} />
+              <span>Last Update: {lastUpdate}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e6f4f1', padding: '10px 20px', borderRadius: '30px' }}>
-              <Wallet color="#005f6b" />
-              <span style={{ fontSize: '18px', fontWeight: 'bold' }}>${userData?.balance.toFixed(2) || '0.00'}</span>
+
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e6f4f1', padding: '15px 25px', borderRadius: '12px', border: '1px solid #005f6b' }}>
+              <Wallet color="#005f6b" size={24} />
+              <div>
+                <div style={{ fontSize: '12px', color: '#005f6b', fontWeight: 'bold' }}>CURRENT BALANCE</div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>${userData?.balance.toLocaleString() || '0'}</div>
+              </div>
             </div>
-            <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <LogOut size={18} /> Logout
+            <button onClick={handleLogout} style={{ marginTop: '10px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px' }}>
+              Logout
             </button>
           </div>
         </header>
@@ -168,73 +198,61 @@ function App() {
             </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '30px' }}>
 
-          {/* INVESTMENT TABLE */}
+          {/* Section: Available Investments [cite: 38, 103] */}
           <section>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><TrendingUp size={20} /> Market Options</h3>
-            <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <table style={{width: '100%', borderCollapse: 'collapse'}}>
-                <thead style={{background: '#f8fafc'}}>
-                <tr>
-                  <th style={{padding: '15px', textAlign: 'left'}}>Plan</th>
-                  <th style={{padding: '15px', textAlign: 'left'}}>Price</th>
-                  <th style={{padding: '15px', textAlign: 'left'}}>ROI</th>
-                  <th style={{padding: '15px', textAlign: 'left'}}>Duration</th>
-                  {/* חדש */}
-                  <th style={{padding: '15px', textAlign: 'center'}}>Action</th>
-                </tr>
-                </thead>
-                <tbody>
-                {options.map(opt => (
-                    <tr key={opt.name} style={{borderTop: '1px solid #eee'}}>
-                      <td style={{padding: '15px', fontWeight: 'bold'}}>{opt.name}</td>
-                      <td style={{padding: '15px'}}>${opt.amount}</td>
-                      <td style={{padding: '15px', color: '#16a34a', fontWeight: 'bold'}}>
-                        +${(opt.expectedReturn - opt.amount)}
-                      </td>
-                      <td style={{padding: '15px'}}>{opt.durationInSeconds}s</td>
-                      <td style={{padding: '15px', textAlign: 'center'}}>
-                        <button onClick={() => handleInvest(opt.name)}>Invest</button>
-                      </td>
-                    </tr>
-                ))}
-                </tbody>
-              </table>
+            <h3 style={{ borderBottom: '2px solid #005f6b', paddingBottom: '10px' }}>Available Investments</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+              {options.map(opt => (
+                  <div key={opt.name} style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '18px' }}>{opt.name}</div>
+                      <div style={{ fontSize: '14px', color: '#64748b' }}>Cost: ${opt.amount} | Return: ${opt.expectedReturn}</div>
+                      <div style={{ fontSize: '14px', color: '#64748b' }}>Duration: {opt.durationInSeconds}s</div>
+                    </div>
+                    <button
+                        onClick={() => handleInvest(opt.name)}
+                        disabled={!!(userData && userData.balance < opt.amount)}
+                        style={{
+                          background: (userData && userData.balance < opt.amount) ? '#cbd5e1' : '#005f6b',
+                          color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'
+                        }}
+                    >
+                      Invest
+                    </button>
+                  </div>
+              ))}
             </div>
           </section>
 
-          {/* ACTIVE INVESTMENTS PANEL */}
+          {/* Section: Current Investments [cite: 37, 99] */}
           <section>
-            <h3 style={{display: 'flex', alignItems: 'center', gap: '10px'}}><Clock size={20}/> Active Portfolio</h3>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
-              {!userData?.activeInvestments || userData.activeInvestments.length === 0 ? (
-                  <div style={{
-                    padding: '30px',
-                    textAlign: 'center',
-                    color: '#94a3b8',
-                    border: '2px dashed #e2e8f0',
-                    borderRadius: '12px'
-                  }}>
-                    No investments running
+            <h3 style={{ borderBottom: '2px solid #005f6b', paddingBottom: '10px' }}>Current Investments</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+              {!userData?.activeInvestments?.length ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' }}>
+                    No active investments
                   </div>
               ) : (
                   userData.activeInvestments.map(inv => (
-                      <div key={inv.id} style={{
-                        background: '#fff',
-                        border: '1px solid #e2e8f0',
-                        padding: '15px',
-                        borderRadius: '12px'
-                      }}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
-                          <span style={{fontWeight: 'bold' }}>{inv.name}</span>
-                          <span style={{ color: '#16a34a', fontSize: '14px' }}>→ ${inv.expectedReturn}</span>
+                      <div key={inv.id} style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', borderLeft: '5px solid #005f6b' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '8px' }}>
+                          <span>{inv.name}</span>
+                          <span style={{ color: '#16a34a' }}>+${inv.expectedReturn}</span>
                         </div>
-                        <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', background: '#005f6b', width: '100%' }}></div>
+
+                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 'bold' }}>ID:</span> {inv.id.substring(0, 8)}
                         </div>
-                        <div style={{fontSize: '11px', color: '#94a3b8', marginTop: '8px'}}>
-                          Ends in: {getTimeRemaining(inv.endTime)}
+
+                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: 'bold' }}>Amount Invested:</span> ${inv.amount}
+                        </div>
+
+                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '5px' }}>
+                          <Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                          Ends in: <span style={{ fontWeight: 'bold', color: '#005f6b' }}>{getTimeRemaining(inv.endTime)}</span>
                         </div>
                       </div>
                   ))

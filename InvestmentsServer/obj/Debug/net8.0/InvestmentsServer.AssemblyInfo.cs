@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("InvestmentsServer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7df44223e11403711aee8c795bf955e6f7f0b87c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db9e9a50fb63365edffe559f53cbaa4a9676c5c2")]
 [assembly: System.Reflection.AssemblyProductAttribute("InvestmentsServer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("InvestmentsServer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
