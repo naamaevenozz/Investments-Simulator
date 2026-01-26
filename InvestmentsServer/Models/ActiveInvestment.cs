@@ -26,5 +26,5 @@ public class ActiveInvestment : BaseInvestment
     /// The UTC time when the investment completes
     /// </summary>
     [Required]
-    public DateTime EndTime { get; set; }+
+    public DateTime EndTime { get; set; }
 }
