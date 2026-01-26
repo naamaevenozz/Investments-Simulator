@@ -8,15 +8,15 @@ public class UserAccount
     /// <summary>
     /// User's name (username or first name)
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    public string username { get; set; } = string.Empty;
     
     /// <summary>
     /// Current account balance
     /// </summary>
-    public decimal Balance { get; set; } = 1000m; 
+    public decimal balance { get; set; } = 500m; 
     
     /// <summary>
     /// List of currently active investments
     /// </summary>
-    public List<ActiveInvestment> ActiveInvestments { get; set; } = new();
+    public List<ActiveInvestment> activeInvestments { get; set; } = new();
 }

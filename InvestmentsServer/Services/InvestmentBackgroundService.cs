@@ -1,14 +1,12 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using InvestmentsServer.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace InvestmentsServer.Services;
 
 /// <summary>
-/// Background service that runs continuously and checks for completed investments.
-/// Acts like a timer that checks once per second.
+/// Background service that checks ALL users for completed investments.
+/// Runs once per second to ensure timely payouts.
 /// </summary>
 public class InvestmentBackgroundService : BackgroundService
 {
@@ -16,56 +14,56 @@ public class InvestmentBackgroundService : BackgroundService
     private readonly ILogger<InvestmentBackgroundService> _logger;
 
     public InvestmentBackgroundService(
-        InvestmentService investmentService,
+        InvestmentService investmentService, 
         ILogger<InvestmentBackgroundService> logger)
     {
         _investmentService = investmentService;
         _logger = logger;
     }
 
-    /// <summary>
-    /// The main loop executed by the background service.
-    /// Periodically checks active investments and completes those whose EndTime has passed.
-    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Investment Background Service started - checking for completed investments");
+        _logger.LogInformation("Global Investment Background Service started.");
 
-        // Infinite loop runs while the host is not stopping
+        // Infinite loop that runs as long as the server is operational
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-				// Use UtcNow to avoid timezone issues
                 var now = DateTime.UtcNow;
-                var activeInvestments = _investmentService.GetActiveInvestments();
+                
+                // Retrieve all users currently existing in the system
+                var allUsers = _investmentService.GetAllUsers();
 
-                // Iterate over active investments
-                foreach (var investment in activeInvestments)
+                foreach (var user in allUsers)
                 {
-                    // If the investment has finished, complete it
-                    if (investment.EndTime <= now)
+                    // Find all investments for the current user where the end time has passed
+                    var completedInvestments = user.activeInvestments
+                        .Where(i => i.EndTime <= now)
+                        .ToList();
+
+                    foreach (var investment in completedInvestments)
                     {
-                        _investmentService.CompleteInvestment(investment.Id);
+                        // Finalize the investment and update the balance for the specific user
+                        _investmentService.CompleteInvestment(user.username, investment.Id);
 
                         _logger.LogInformation(
-                            "Investment completed: {Name} (ID: {Id}), Return: ${Return}",
+                            "SUCCESS: User {User} - Investment {Name} completed. Payout: ${Return}",
+                            user.username,
                             investment.Name,
-                            investment.Id,
                             investment.ExpectedReturn);
                     }
                 }
             }
-			// Catch any exceptions to prevent the background service from crashing
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing investments");
+                _logger.LogError(ex, "Error occurred while processing global background investments.");
             }
 
-            // Wait one second before checking again - let the server take care other requests
+            // Wait for one second before the next scan
             await Task.Delay(1000, stoppingToken);
         }
 
-        _logger.LogInformation("Investment Background Service stopped");
+        _logger.LogInformation("Global Investment Background Service stopped.");
     }
 }

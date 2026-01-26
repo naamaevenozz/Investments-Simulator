@@ -1,27 +1,17 @@
-﻿namespace InvestmentsServer.Models;
+﻿// csharp
+using System;
 
-public class ActiveInvestment
+namespace InvestmentsServer.Models;
+
+public class ActiveInvestment : BaseInvestment
 {
-    public Guid Id { get; set; } = Guid.NewGuid(); [cite: 20, 39]
-    public DateTime EndTime { get; set; } // File: `Models/ActiveInvestment.cs`
-    using DefaultNamespace;
-    
-    namespace InvestmentsServer.Models;
-    
     /// <summary>
-    /// Represents an active investment started by the user.
-    /// Inherits <see cref="BaseInvestment"/> to include Name, Amount and ExpectedReturn.
+    /// Unique identifier for an active investment.
     /// </summary>
-    public class ActiveInvestment : BaseInvestment
-    {
-        /// <summary>
-        /// Unique identifier for this active investment instance.
-        /// </summary>
-        public Guid Id { get; set; } = Guid.NewGuid();
-    
-        /// <summary>
-        /// The UTC time when the investment will complete and payout is available.
-        /// </summary>
-        public DateTime EndTime { get; set; }
-    }
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// The UTC time when the investment completes.
+    /// </summary>
+    public DateTime EndTime { get; set; }
 }
