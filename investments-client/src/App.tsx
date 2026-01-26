@@ -33,18 +33,18 @@ function App() {
   const [options, setOptions] = useState<InvestmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // State for the ticking clock (triggers re-render every second for "Ends in") [cite: 35]
+  // State for the ticking clock (triggers re-render every second for "Ends in")
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   // State for the "Last Update" timestamp 
   const [lastUpdate, setLastUpdate] = useState<string>('--:--:--');
 
   useEffect(() => {
-    const stored = localStorage.getItem('invest_user');
+    const stored = sessionStorage.getItem('invest_user');
     if (stored) setUsername(stored);
   }, []);
 
-  // Timer effect: Updates every 1 second to ensure "Ends in" countdown moves [cite: 35]
+  // Timer effect: Updates every 1 second to ensure "Ends in" countdown moves
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
@@ -76,13 +76,14 @@ function App() {
   useEffect(() => {
     if (username) {
       fetchAllData();
-      const interval = setInterval(fetchAllData, 2000); // Poll BE every 2s [cite: 56]
+      const interval = setInterval(fetchAllData, 2000); // Poll BE every 2s
       return () => clearInterval(interval);
     }
   }, [username, fetchAllData]);
 
   const getTimeRemaining = (endTimeStr: string): string => {
     try {
+      // הוסף Z אם אין
       const utcStr = endTimeStr.endsWith('Z') ? endTimeStr : endTimeStr + 'Z';
       const end = new Date(utcStr).getTime();
       const now = Date.now();
@@ -110,21 +111,22 @@ function App() {
       return "Error";
     }
   };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = loginInput.trim();
-    // Validation: 3 chars min, English letters only [cite: 28]
+    // Validation: 3 chars min, English letters only
     if (trimmed.length < 3 || !/^[a-zA-Z]+$/.test(trimmed)) {
       setError("Username must be at least 3 English letters");
       return;
     }
     setError(null);
-    localStorage.setItem('invest_user', trimmed);
+    sessionStorage.setItem('invest_user', trimmed);
     setUsername(trimmed);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('invest_user');
+    sessionStorage.removeItem('invest_user');
     setUsername(null);
     setUserData(null);
   };
@@ -138,7 +140,7 @@ function App() {
       });
       fetchAllData();
     } catch (err: any) {
-      // Show clear response from BE [cite: 71]
+      // Show clear response from BE
       setError(err.response?.data?.message || "Investment failed");
     }
   };
@@ -152,14 +154,32 @@ function App() {
                 type="text"
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '10px' ,
-                  boxSizing: 'border-box'}}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #ddd',
+                  marginBottom: '10px',
+                  boxSizing: 'border-box'
+                }}
                 placeholder="Enter Username"
                 required
             />
             {error && <div style={{ color: 'red', fontSize: '12px', marginBottom: '10px' }}>{error}</div>}
-            <button type="submit" style={{ width: '100%', background: '#005f6b', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
-              boxSizing: 'border-box' }}>
+            <button
+                type="submit"
+                style={{
+                  width: '100%',
+                  background: '#005f6b',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxSizing: 'border-box'
+                }}
+            >
               Login
             </button>
           </form>
@@ -200,7 +220,7 @@ function App() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '30px' }}>
 
-          {/* Section: Available Investments [cite: 38, 103] */}
+          {/* Section: Available Investments */}
           <section>
             <h3 style={{ borderBottom: '2px solid #005f6b', paddingBottom: '10px' }}>Available Investments</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
@@ -216,7 +236,12 @@ function App() {
                         disabled={!!(userData && userData.balance < opt.amount)}
                         style={{
                           background: (userData && userData.balance < opt.amount) ? '#cbd5e1' : '#005f6b',
-                          color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold'
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          cursor: (userData && userData.balance < opt.amount) ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold'
                         }}
                     >
                       Invest
@@ -226,7 +251,7 @@ function App() {
             </div>
           </section>
 
-          {/* Section: Current Investments [cite: 37, 99] */}
+          {/* Section: Current Investments */}
           <section>
             <h3 style={{ borderBottom: '2px solid #005f6b', paddingBottom: '10px' }}>Current Investments</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
