@@ -57,13 +57,31 @@ function App() {
       return () => clearInterval(timer);
     }
   }, [username, fetchAllData]);
-
+  const getTimeRemaining = (endTime: string): string => {
+    const now = new Date().getTime();
+    const end = new Date(endTime).getTime();
+    const diff = Math.max(0, end - now);
+    const seconds = Math.floor(diff / 1000);
+    return `${seconds}s`;
+  };
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginInput.trim()) {
-      sessionStorage.setItem('invest_user', loginInput);
-      setUsername(loginInput);
+    const trimmed = loginInput.trim();
+
+    // Validation: at least 3 characters, only English letters
+    if (trimmed.length < 3) {
+      setError("Username must be at least 3 characters long");
+      return;
     }
+
+    if (!/^[a-zA-Z]+$/.test(trimmed)) {
+      setError("Username must contain only English letters");
+      return;
+    }
+
+    setError(null);
+    sessionStorage.setItem('invest_user', trimmed);
+    setUsername(trimmed);
   };
 
   const handleLogout = () => {
@@ -102,6 +120,18 @@ function App() {
                   placeholder="e.g. JohnDoe"
                   required
               />
+              {error && (
+                  <div style={{
+                    background: '#fee2e2',
+                    color: '#b91c1c',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    marginTop: '10px',
+                    fontSize: '14px'
+                  }}>
+                    {error}
+                  </div>
+              )}
             </div>
             <button type="submit" style={{ width: '100%', background: '#005f6b', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
               Login / Create Account
@@ -144,27 +174,28 @@ function App() {
           <section>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><TrendingUp size={20} /> Market Options</h3>
             <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f8fafc' }}>
+              <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                <thead style={{background: '#f8fafc'}}>
                 <tr>
-                  <th style={{ padding: '15px', textAlign: 'left' }}>Plan</th>
-                  <th style={{ padding: '15px', textAlign: 'left' }}>Price</th>
-                  <th style={{ padding: '15px', textAlign: 'left' }}>ROI</th>
-                  <th style={{ padding: '15px', textAlign: 'center' }}>Action</th>
+                  <th style={{padding: '15px', textAlign: 'left'}}>Plan</th>
+                  <th style={{padding: '15px', textAlign: 'left'}}>Price</th>
+                  <th style={{padding: '15px', textAlign: 'left'}}>ROI</th>
+                  <th style={{padding: '15px', textAlign: 'left'}}>Duration</th>
+                  {/* חדש */}
+                  <th style={{padding: '15px', textAlign: 'center'}}>Action</th>
                 </tr>
                 </thead>
                 <tbody>
                 {options.map(opt => (
-                    <tr key={opt.name} style={{ borderTop: '1px solid #eee' }}>
-                      <td style={{ padding: '15px', fontWeight: 'bold' }}>{opt.name}</td>
-                      <td style={{ padding: '15px' }}>${opt.amount}</td>
-                      <td style={{ padding: '15px', color: '#16a34a', fontWeight: 'bold' }}>+${(opt.expectedReturn - opt.amount)}</td>
-                      <td style={{ padding: '15px', textAlign: 'center' }}>
-                        <button
-                            onClick={() => handleInvest(opt.name)}
-                            style={{ background: '#005f6b', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}>
-                          Invest
-                        </button>
+                    <tr key={opt.name} style={{borderTop: '1px solid #eee'}}>
+                      <td style={{padding: '15px', fontWeight: 'bold'}}>{opt.name}</td>
+                      <td style={{padding: '15px'}}>${opt.amount}</td>
+                      <td style={{padding: '15px', color: '#16a34a', fontWeight: 'bold'}}>
+                        +${(opt.expectedReturn - opt.amount)}
+                      </td>
+                      <td style={{padding: '15px'}}>{opt.durationInSeconds}s</td>
+                      <td style={{padding: '15px', textAlign: 'center'}}>
+                        <button onClick={() => handleInvest(opt.name)}>Invest</button>
                       </td>
                     </tr>
                 ))}
@@ -175,23 +206,36 @@ function App() {
 
           {/* ACTIVE INVESTMENTS PANEL */}
           <section>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Clock size={20} /> Active Portfolio</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <h3 style={{display: 'flex', alignItems: 'center', gap: '10px'}}><Clock size={20}/> Active Portfolio</h3>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
               {!userData?.activeInvestments || userData.activeInvestments.length === 0 ? (
-                  <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' }}>
+                  <div style={{
+                    padding: '30px',
+                    textAlign: 'center',
+                    color: '#94a3b8',
+                    border: '2px dashed #e2e8f0',
+                    borderRadius: '12px'
+                  }}>
                     No investments running
                   </div>
               ) : (
                   userData.activeInvestments.map(inv => (
-                      <div key={inv.id} style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '15px', borderRadius: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: 'bold' }}>{inv.name}</span>
+                      <div key={inv.id} style={{
+                        background: '#fff',
+                        border: '1px solid #e2e8f0',
+                        padding: '15px',
+                        borderRadius: '12px'
+                      }}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                          <span style={{fontWeight: 'bold' }}>{inv.name}</span>
                           <span style={{ color: '#16a34a', fontSize: '14px' }}>→ ${inv.expectedReturn}</span>
                         </div>
                         <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
                           <div style={{ height: '100%', background: '#005f6b', width: '100%' }}></div>
                         </div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px' }}>Processing...</div>
+                        <div style={{fontSize: '11px', color: '#94a3b8', marginTop: '8px'}}>
+                          Ends in: {getTimeRemaining(inv.endTime)}
+                        </div>
                       </div>
                   ))
               )}
