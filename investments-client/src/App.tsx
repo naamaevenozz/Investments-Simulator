@@ -1,6 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Wallet, Clock, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Wallet, Clock, AlertCircle, RefreshCcw, Wifi, WifiOff } from 'lucide-react';
+// @ts-ignore
+import * as signalR from '@microsoft/signalr'; // NEW: SignalR client
 
 // Interfaces for Type Safety
 interface InvestmentOption {
@@ -15,7 +17,7 @@ interface ActiveInvestment {
   name: string;
   amount: number;
   expectedReturn: number;
-  endTime: string; // ISO String from Backend
+  endTime: string;
 }
 
 interface UserData {
@@ -25,6 +27,7 @@ interface UserData {
 }
 
 const API_BASE = 'http://localhost:5243/api/investment';
+const SIGNALR_HUB = 'http://localhost:5243/investmentHub';
 
 function App() {
   const [username, setUsername] = useState<string | null>(null);
@@ -32,19 +35,20 @@ function App() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [options, setOptions] = useState<InvestmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  // State for the ticking clock (triggers re-render every second for "Ends in")
+  const [success, setSuccess] = useState<string | null>(null); // NEW: Success messages
   const [currentTime, setCurrentTime] = useState(Date.now());
-
-  // State for the "Last Update" timestamp 
   const [lastUpdate, setLastUpdate] = useState<string>('--:--:--');
+
+  // NEW: SignalR connection state
+  const [isConnected, setIsConnected] = useState(false);
+  const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('invest_user');
     if (stored) setUsername(stored);
   }, []);
 
-  // Timer effect: Updates every 1 second to ensure "Ends in" countdown moves
+  // Timer effect: Updates every 1 second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
@@ -52,6 +56,113 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // NEW: SignalR Connection Setup
+  useEffect(() => {
+    if (!username) return;
+
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl(SIGNALR_HUB, {
+          skipNegotiation: true,
+          transport: signalR.HttpTransportType.WebSockets
+        })
+        .withAutomaticReconnect() // Auto-reconnect on disconnect
+        .configureLogging(signalR.LogLevel.Information)
+        .build();
+
+    // Event: Connection established
+    connection.onreconnecting(() => {
+      console.log('Reconnecting to SignalR...');
+      setIsConnected(false);
+    });
+
+    connection.onreconnected(() => {
+      console.log('Reconnected to SignalR');
+      setIsConnected(true);
+      // Re-subscribe after reconnection
+      connection.invoke('SubscribeToUpdates', username);
+    });
+
+    connection.onclose(() => {
+      console.log('SignalR connection closed');
+      setIsConnected(false);
+    });
+
+    // Event: Subscription confirmed
+    connection.on('SubscriptionConfirmed', (data: any) => {
+      console.log('Subscribed to updates:', data);
+      setSuccess('Connected to real-time updates!');
+      setTimeout(() => setSuccess(null), 3000);
+    });
+
+    // Event: Investment started (from queue worker)
+    connection.on('InvestmentStarted', (data: { optionName: any; newBalance: any; activeInvestments: any; }) => {
+      console.log('Investment started:', data);
+      setSuccess(`Investment in ${data.optionName} started!`);
+      setTimeout(() => setSuccess(null), 3000);
+
+      // Update local state with new data
+      setUserData(prev => prev ? {
+        ...prev,
+        balance: data.newBalance,
+        activeInvestments: data.activeInvestments
+      } : null);
+
+      updateLastUpdateTime();
+    });
+
+    // Event: Investment completed (from background service)
+    connection.on('InvestmentCompleted', (data: { message: any; payout: any; newBalance: any; activeInvestments: any; }) => {
+      console.log('🎉 Investment completed:', data);
+      setSuccess(`${data.message} +$${data.payout}`);
+      setTimeout(() => setSuccess(null), 5000);
+
+      // Update local state
+      setUserData(prev => prev ? {
+        ...prev,
+        balance: data.newBalance,
+        activeInvestments: data.activeInvestments
+      } : null);
+
+      updateLastUpdateTime();
+    });
+
+    // Event: Investment failed
+    connection.on('InvestmentFailed', (data: { message: React.SetStateAction<string | null>; }) => {
+      console.log('Investment failed:', data);
+      setError(data.message);
+      setTimeout(() => setError(null), 5000);
+    });
+
+    // Start connection
+    connection.start()
+        .then(() => {
+          console.log('SignalR connected');
+          setIsConnected(true);
+          connectionRef.current = connection;
+
+          // Subscribe to user-specific updates
+          return connection.invoke('SubscribeToUpdates', username);
+        })
+        .catch((err: any) => {
+          console.error('SignalR connection failed:', err);
+          setError('Real-time connection failed. Using polling mode.');
+          setTimeout(() => setError(null), 5000);
+        });
+
+    // Cleanup on unmount
+    return () => {
+      if (connection) {
+        connection.stop();
+      }
+    };
+  }, [username]);
+
+  const updateLastUpdateTime = () => {
+    const now = new Date();
+    setLastUpdate(`${now.toLocaleDateString('en-GB')}, ${now.toLocaleTimeString('en-GB')}`);
+  };
+
+  // Fetch data (now less frequent since we have SignalR)
   const fetchAllData = useCallback(async () => {
     if (!username) return;
 
@@ -63,11 +174,7 @@ function App() {
 
       setUserData(userRes.data);
       setOptions(optRes.data);
-
-      // Requirement: Update "Last Update" display 
-      const now = new Date();
-      setLastUpdate(`${now.toLocaleDateString('en-GB')}, ${now.toLocaleTimeString('en-GB')}`);
-
+      updateLastUpdateTime();
     } catch (err) {
       console.error("Connection to backend failed", err);
     }
@@ -76,14 +183,14 @@ function App() {
   useEffect(() => {
     if (username) {
       fetchAllData();
-      const interval = setInterval(fetchAllData, 2000); // Poll BE every 2s
+      // Reduced polling frequency since SignalR handles real-time updates
+      const interval = setInterval(fetchAllData, 10000); // Every 10s instead of 2s
       return () => clearInterval(interval);
     }
   }, [username, fetchAllData]);
 
   const getTimeRemaining = (endTimeStr: string): string => {
     try {
-      // הוסף Z אם אין
       const utcStr = endTimeStr.endsWith('Z') ? endTimeStr : endTimeStr + 'Z';
       const end = new Date(utcStr).getTime();
       const now = Date.now();
@@ -95,7 +202,7 @@ function App() {
       }
 
       if (diff <= 0) {
-        return "Finishing...";
+        return "Completing...";
       }
 
       const seconds = Math.floor(diff / 1000);
@@ -115,7 +222,6 @@ function App() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = loginInput.trim();
-    // Validation: 3 chars min, English letters only
     if (trimmed.length < 3 || !/^[a-zA-Z]+$/.test(trimmed)) {
       setError("Username must be at least 3 English letters");
       return;
@@ -126,22 +232,35 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Disconnect SignalR
+    if (connectionRef.current) {
+      connectionRef.current.stop();
+    }
     sessionStorage.removeItem('invest_user');
     setUsername(null);
     setUserData(null);
+    setIsConnected(false);
   };
 
   const handleInvest = async (optionName: string) => {
     try {
       setError(null);
-      await axios.post(`${API_BASE}/invest`, {
+      setSuccess(null);
+
+      // NEW: Request is queued, response is immediate
+      const response = await axios.post(`${API_BASE}/invest`, {
         username: username,
         optionName: optionName
       });
-      fetchAllData();
+
+      // Show immediate feedback (request accepted)
+      if (response.status === 202) {
+        setSuccess('Investment request submitted! Processing...');
+        // The actual result will come via SignalR
+      }
     } catch (err: any) {
-      // Show clear response from BE
       setError(err.response?.data?.message || "Investment failed");
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -149,7 +268,7 @@ function App() {
     return (
         <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f4f8' }}>
           <form onSubmit={handleLogin} style={{ background: 'white', padding: '40px', borderRadius: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
-            <h2 style={{ color: '#005f6b', marginBottom: '20px', textAlign: 'center' }}>Investment Portal</h2>
+            <h2 style={{ color: '#005f6b', marginBottom: '20px', textAlign: 'center' }}>Investment Simulator</h2>
             <input
                 type="text"
                 value={loginInput}
@@ -192,9 +311,16 @@ function App() {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', borderBottom: '2px solid #eee', paddingBottom: '20px' }}>
           <div>
             <h1 style={{ color: '#005f6b', margin: 0 }}>Hello, {username}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b', marginTop: '5px', fontSize: '14px' }}>
-              <RefreshCcw size={14} />
-              <span>Last Update: {lastUpdate}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+              {/* NEW: Connection status indicator */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: isConnected ? '#10b981' : '#ef4444' }}>
+                {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
+                <span>{isConnected ? 'Real-time updates active' : 'Connecting...'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b', fontSize: '13px' }}>
+                <RefreshCcw size={14} />
+                <span>Last Update: {lastUpdate}</span>
+              </div>
             </div>
           </div>
 
@@ -211,6 +337,13 @@ function App() {
             </button>
           </div>
         </header>
+
+        {/* NEW: Success messages */}
+        {success && (
+            <div style={{ background: '#d1fae5', color: '#065f46', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid #10b981' }}>
+              <span style={{ fontSize: '20px' }}>✓</span> {success}
+            </div>
+        )}
 
         {error && (
             <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '15px', borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
