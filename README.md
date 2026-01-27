@@ -3,11 +3,6 @@
 A full-stack investment simulation application,
 allows users to manage a virtual investment account with real-time balance updates and automated investment processing.
 
-### Prerequisites
-
-- .NET 8.0 SDK
-- Node.js 18+ and npm
-
 ### Backend Setup
 
 1. **Restore packages**
