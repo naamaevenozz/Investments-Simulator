@@ -48,8 +48,7 @@ User Action → Queue → Background Worker → Database → SignalR → UI Upda
 ##  Project Structure
 
 ```
-investment-simulator/
-├── InvestmentsServer/              # Backend (C# / ASP.NET Core)
+├── investments-server/              # Backend (C# / ASP.NET Core)
 │   ├── Controllers/
 │   │   └── InvestmentController.cs # REST API endpoints
 │   ├── Services/
@@ -174,7 +173,7 @@ investment-simulator/
 
 ### Database File
 
-- Location: `InvestmentsServer/investments.db`
+- Location: `investments-server/investments.db`
 - Type: SQLite
 - Persists across server restarts
 
