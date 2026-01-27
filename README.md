@@ -89,7 +89,7 @@ investment-simulator/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd investment-simulator/InvestmentsServer
+   cd investment-simulator/investments-server
    ```
 
 2. **Restore packages**
@@ -148,7 +148,7 @@ investment-simulator/
 3. Start with $500 default balance
 4. Choose an investment option and watch it complete in real-time!
 
-## 💾 Database
+##  Database
 
 ### Schema
 
@@ -334,40 +334,6 @@ The application includes comprehensive logging:
 - Single-server deployment (queue is in-memory)
 - No investment history tracking
 - Fixed investment options
-
-##  Learning Outcomes
-
-This project demonstrates:
-- Event-driven architecture principles
-- Real-time web communication with SignalR
-- Asynchronous programming patterns
-- Entity Framework Core and database management
-- RESTful API design
-- Modern React development with TypeScript
-- Background service implementation
-- Message queue patterns
-
-##  Future Enhancements
-
-- User authentication with JWT
-- Investment history tracking
-- Dynamic investment options
-- Redis-based distributed queue
-- Investment success/failure rates
-- Portfolio analytics
-- Multi-user real-time dashboard
-
-##  Contributing
-
-This is a demonstration project for educational purposes.
-
-##  License
-
-This project is for educational and demonstration purposes.
-
-##  Acknowledgments
-
-Built as part of the Siemens Student Position application process.
 
 ---
 
