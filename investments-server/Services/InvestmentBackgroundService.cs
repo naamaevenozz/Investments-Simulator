@@ -7,11 +7,6 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace InvestmentsServer.Services;
 
-/// <summary>
-/// Background service that checks ALL users for completed investments.
-/// Runs once per second to ensure timely payouts.
-/// NOW WITH SIGNALR: Sends real-time notifications when investments complete!
-/// </summary>
 public class InvestmentBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;

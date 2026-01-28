@@ -9,12 +9,12 @@ namespace InvestmentsServer.Controllers;
 public class InvestmentController : ControllerBase
 {
     private readonly InvestmentService _service;
-    private readonly InvestmentQueue _queue; // NEW: Queue for event-driven processing
+    private readonly InvestmentQueue _queue; 
     private readonly ILogger<InvestmentController> _logger;
 
     public InvestmentController(
         InvestmentService service,
-        InvestmentQueue queue, // NEW: Inject the queue
+        InvestmentQueue queue, 
         ILogger<InvestmentController> logger)
     {
         _service = service;
@@ -22,10 +22,7 @@ public class InvestmentController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Returns the complete state for a specific user.
-    /// If the user doesn't exist, a new account is created with default balance.
-    /// </summary>
+   
     [HttpGet("user-data")]
     public async Task<IActionResult> GetUserData([FromQuery] string username)
     {
@@ -46,9 +43,6 @@ public class InvestmentController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Returns all available investment plans/options.
-    /// </summary>
     [HttpGet("options")]
     public IActionResult GetOptions()
     {
@@ -56,10 +50,6 @@ public class InvestmentController : ControllerBase
         return Ok(options);
     }
 
-    /// <summary>
-    /// EVENT-DRIVEN: Queues an investment request for asynchronous processing
-    /// Returns immediately with 202 Accepted (does NOT wait for processing)
-    /// </summary>
     [HttpPost("invest")]
     public async Task<IActionResult> Invest([FromBody] InvestRequest request)
     {
@@ -81,19 +71,16 @@ public class InvestmentController : ControllerBase
                 return BadRequest(new { message = "Investment option not found" });
             }
 
-            // Check balance
             if (user.Balance < option.Amount)
             {
                 return BadRequest(new { message = "Insufficient balance" });
             }
 
-            // Check for duplicate active investment
             if (user.ActiveInvestments.Any(i => i.Name == request.OptionName))
             {
                 return BadRequest(new { message = "You already have an active investment in this option" });
             }
 
-            // EVENT-DRIVEN: Add to queue and return IMMEDIATELY
             await _queue.EnqueueAsync(request);
 
             _logger.LogInformation(
@@ -101,7 +88,6 @@ public class InvestmentController : ControllerBase
                 request.Username,
                 request.OptionName);
 
-            // Return 202 Accepted - indicates request is being processed asynchronously
             return Accepted(new 
             { 
                 message = "Investment request received and is being processed",
@@ -118,10 +104,7 @@ public class InvestmentController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while processing your request" });
         }
     }
-
-    /// <summary>
-    /// NEW: Returns queue statistics (optional - for monitoring)
-    /// </summary>
+    
     [HttpGet("queue-status")]
     public IActionResult GetQueueStatus()
     {

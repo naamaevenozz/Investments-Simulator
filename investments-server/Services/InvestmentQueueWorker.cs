@@ -4,11 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace InvestmentsServer.Services;
 
-/// <summary>
-/// Background worker that listens to the investment queue
-/// and processes investment requests asynchronously
-/// This is the core of the Event-Driven Architecture
-/// </summary>
+
 public class InvestmentQueueWorker : BackgroundService
 {
     private readonly InvestmentQueue _queue;
@@ -66,9 +62,7 @@ public class InvestmentQueueWorker : BackgroundService
         _logger.LogInformation("Investment Queue Worker stopped");
     }
 
-    /// <summary>
-    /// Processes a single investment request from the queue
-    /// </summary>
+
     private async Task ProcessInvestmentRequestAsync(InvestRequest request)
     {
         using var scope = _scopeFactory.CreateScope();

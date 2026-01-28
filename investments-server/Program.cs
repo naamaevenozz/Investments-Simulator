@@ -1,6 +1,6 @@
 using InvestmentsServer.Services;
 using InvestmentsServer.Data;
-using InvestmentsServer.Hubs; // NEW: SignalR Hub
+using InvestmentsServer.Hubs; 
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,7 +8,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add Controllers
 builder.Services.AddControllers();
 
-// NEW: Add SignalR
 builder.Services.AddSignalR();
 
 // Configure Database
@@ -20,14 +19,12 @@ builder.Services.AddDbContextFactory<InvestmentDbContext>(options =>
     )
 );
 
-// NEW: Register the Investment Queue as Singleton
 // Singleton ensures the same queue instance is used across the app
 builder.Services.AddSingleton<InvestmentQueue>();
 
 // Register Services
 builder.Services.AddScoped<InvestmentService>();
 
-// NEW: Register BOTH background services
 builder.Services.AddHostedService<InvestmentQueueWorker>();      // Processes queue
 builder.Services.AddHostedService<InvestmentBackgroundService>(); // Checks completions
 
@@ -62,7 +59,6 @@ app.UseAuthorization();
 // Map REST API Controllers
 app.MapControllers();
 
-// NEW: Map SignalR Hub
 app.MapHub<InvestmentHub>("/investmentHub");
 
 Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -70,7 +66,6 @@ Console.WriteLine("   Backend is UP and RUNNING!");
 Console.WriteLine("   API URL: http://localhost:5000");
 Console.WriteLine("   SignalR Hub: http://localhost:5000/investmentHub");
 Console.WriteLine("   Database: SQLite (investments.db)");
-Console.WriteLine("   Event-Driven: ENABLED");
 Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
 app.Run();

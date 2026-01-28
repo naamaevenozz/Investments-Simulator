@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "i4hutz3noj4=",
+  "dgSpecHash": "VHGZZTovZew=",
   "success": true,
-  "projectFilePath": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\InvestmentsServer\\InvestmentsServer.csproj",
+  "projectFilePath": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\investments-server\\InvestmentsServer.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\naama\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\naama\\.nuget\\packages\\microsoft.aspnetcore.authentication.abstractions\\2.2.0\\microsoft.aspnetcore.authentication.abstractions.2.2.0.nupkg.sha512",

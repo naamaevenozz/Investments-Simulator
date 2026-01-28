@@ -4728,11 +4728,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\InvestmentsServer\\InvestmentsServer.csproj",
+      "projectUniqueName": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\investments-server\\InvestmentsServer.csproj",
       "projectName": "InvestmentsServer",
-      "projectPath": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\InvestmentsServer\\InvestmentsServer.csproj",
+      "projectPath": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\investments-server\\InvestmentsServer.csproj",
       "packagesPath": "C:\\Users\\naama\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\InvestmentsServer\\obj\\",
+      "outputPath": "C:\\Users\\naama\\OneDrive\\SIMENS\\Investments Simulator\\investments-server\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

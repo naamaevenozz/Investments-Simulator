@@ -4,9 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InvestmentsServer.Services;
 
-/// <summary>
-/// Service for managing investments with database persistence
-/// </summary>
+
 public class InvestmentService
 {
     private readonly IDbContextFactory<InvestmentDbContext> _contextFactory;
@@ -28,9 +26,7 @@ public class InvestmentService
         _logger = logger;
     }
 
-    /// <summary>
-    /// Gets a user from the database or creates a new one with starting balance
-    /// </summary>
+
     public async Task<UserAccount> GetOrCreateUserAsync(string username)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
@@ -57,14 +53,10 @@ public class InvestmentService
         return user;
     }
 
-    /// <summary>
-    /// Returns the list of available investment options
-    /// </summary>
+ 
     public List<InvestmentOption> GetOptions() => _options;
 
-    /// <summary>
-    /// Starts a new investment for a user
-    /// </summary>
+
     public async Task StartInvestmentAsync(string username, string optionName)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
@@ -126,9 +118,6 @@ public class InvestmentService
         }
     }
 
-    /// <summary>
-    /// Gets all users with their active investments (used by background service)
-    /// </summary>
     public async Task<List<UserAccount>> GetAllUsersAsync()
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
@@ -138,9 +127,7 @@ public class InvestmentService
             .ToListAsync();
     }
 
-    /// <summary>
-    /// Completes an investment and adds the return to user's balance
-    /// </summary>
+
     public async Task CompleteInvestmentAsync(string username, Guid investmentId)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();
