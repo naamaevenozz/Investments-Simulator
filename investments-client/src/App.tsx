@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Wallet, Clock, AlertCircle, RefreshCcw, Wifi, WifiOff } from 'lucide-react';
-// @ts-ignore
-import * as signalR from '@microsoft/signalr'; // NEW: SignalR client
+import * as signalR from '@microsoft/signalr'; 
 
-// Interfaces for Type Safety
 interface InvestmentOption {
   name: string;
   amount: number;
@@ -35,20 +33,18 @@ function App() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [options, setOptions] = useState<InvestmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null); // NEW: Success messages
+  const [success, setSuccess] = useState<string | null>(null); 
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [lastUpdate, setLastUpdate] = useState<string>('--:--:--');
 
-  // NEW: SignalR connection state
   const [isConnected, setIsConnected] = useState(false);
-  const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const connectionRef = useRef<signalR.HubConnection | null>(null); // ref for SignalR connection
 
   useEffect(() => {
     const stored = sessionStorage.getItem('invest_user');
     if (stored) setUsername(stored);
-  }, []);
+  }, []); // The [] ensures this runs only once on mount
 
-  // Timer effect: Updates every 1 second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
@@ -56,7 +52,6 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // NEW: SignalR Connection Setup
   useEffect(() => {
     if (!username) return;
 
@@ -65,11 +60,10 @@ function App() {
           skipNegotiation: true,
           transport: signalR.HttpTransportType.WebSockets
         })
-        .withAutomaticReconnect() // Auto-reconnect on disconnect
+        .withAutomaticReconnect() // Try to reconnect automatically
         .configureLogging(signalR.LogLevel.Information)
         .build();
 
-    // Event: Connection established
     connection.onreconnecting(() => {
       console.log('Reconnecting to SignalR...');
       setIsConnected(false);
@@ -78,7 +72,6 @@ function App() {
     connection.onreconnected(() => {
       console.log('Reconnected to SignalR');
       setIsConnected(true);
-      // Re-subscribe after reconnection
       connection.invoke('SubscribeToUpdates', username);
     });
 
@@ -87,20 +80,17 @@ function App() {
       setIsConnected(false);
     });
 
-    // Event: Subscription confirmed
     connection.on('SubscriptionConfirmed', (data: any) => {
       console.log('Subscribed to updates:', data);
       setSuccess('Connected to real-time updates!');
       setTimeout(() => setSuccess(null), 3000);
     });
 
-    // Event: Investment started (from queue worker)
     connection.on('InvestmentStarted', (data: { optionName: any; newBalance: any; activeInvestments: any; }) => {
       console.log('Investment started:', data);
       setSuccess(`Investment in ${data.optionName} started!`);
       setTimeout(() => setSuccess(null), 3000);
 
-      // Update local state with new data
       setUserData(prev => prev ? {
         ...prev,
         balance: data.newBalance,
@@ -110,13 +100,11 @@ function App() {
       updateLastUpdateTime();
     });
 
-    // Event: Investment completed (from background service)
     connection.on('InvestmentCompleted', (data: { message: any; payout: any; newBalance: any; activeInvestments: any; }) => {
-      console.log('🎉 Investment completed:', data);
+      console.log('Investment completed:', data);
       setSuccess(`${data.message} +$${data.payout}`);
       setTimeout(() => setSuccess(null), 5000);
 
-      // Update local state
       setUserData(prev => prev ? {
         ...prev,
         balance: data.newBalance,
@@ -126,21 +114,18 @@ function App() {
       updateLastUpdateTime();
     });
 
-    // Event: Investment failed
     connection.on('InvestmentFailed', (data: { message: React.SetStateAction<string | null>; }) => {
       console.log('Investment failed:', data);
       setError(data.message);
       setTimeout(() => setError(null), 5000);
     });
 
-    // Start connection
     connection.start()
         .then(() => {
           console.log('SignalR connected');
           setIsConnected(true);
           connectionRef.current = connection;
 
-          // Subscribe to user-specific updates
           return connection.invoke('SubscribeToUpdates', username);
         })
         .catch((err: any) => {
@@ -149,8 +134,8 @@ function App() {
           setTimeout(() => setError(null), 5000);
         });
 
-    // Cleanup on unmount
     return () => {
+      // Clean up the connection on unmount
       if (connection) {
         connection.stop();
       }
@@ -161,8 +146,8 @@ function App() {
     const now = new Date();
     setLastUpdate(`${now.toLocaleDateString('en-GB')}, ${now.toLocaleTimeString('en-GB')}`);
   };
-
-  // Fetch data (now less frequent since we have SignalR)
+  
+  // use callback to memoize fetchUserData function
   const fetchAllData = useCallback(async () => {
     if (!username) return;
 
@@ -183,8 +168,7 @@ function App() {
   useEffect(() => {
     if (username) {
       fetchAllData();
-      // Reduced polling frequency since SignalR handles real-time updates
-      const interval = setInterval(fetchAllData, 10000); // Every 10s instead of 2s
+      const interval = setInterval(fetchAllData, 10000); 
       return () => clearInterval(interval);
     }
   }, [username, fetchAllData]);
@@ -232,7 +216,6 @@ function App() {
   };
 
   const handleLogout = () => {
-    // Disconnect SignalR
     if (connectionRef.current) {
       connectionRef.current.stop();
     }
@@ -247,16 +230,13 @@ function App() {
       setError(null);
       setSuccess(null);
 
-      // NEW: Request is queued, response is immediate
       const response = await axios.post(`${API_BASE}/invest`, {
         username: username,
         optionName: optionName
       });
 
-      // Show immediate feedback (request accepted)
       if (response.status === 202) {
         setSuccess('Investment request submitted! Processing...');
-        // The actual result will come via SignalR
       }
     } catch (err: any) {
       setError(err.response?.data?.message || "Investment failed");
